@@ -1,0 +1,51 @@
+name: Build with Ko
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  KO_DOCKER_REPO: ghcr.io/konstfish/hits
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Get Go version from go.mod
+      id: go-version
+      run: |
+        if [ -f go.mod ]; then
+          GO_VERSION=$(grep -E '^go [0-9]+\.[0-9]+' go.mod | awk '{print $2}')
+          echo "version=${GO_VERSION}" >> $GITHUB_OUTPUT
+        else
+          echo "version=1.22" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ steps.go-version.outputs.version }}
+        check-latest: true
+
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Setup Ko
+      uses: ko-build/setup-ko@v0.6
+
+    - name: Build with Ko
+      run: |
+        ko build --bare --platform=all
+      env:
+        KO_DOCKER_REPO: ${{ env.KO_DOCKER_REPO }}
