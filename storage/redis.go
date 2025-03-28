@@ -10,6 +10,7 @@ import (
 
 type CounterStore interface {
 	IncrementCounters(ctx context.Context, targetURL string) (int64, int64, error)
+	ShowCounters(ctx context.Context, targetURL string) (int64, int64, error)
 }
 
 type RedisStore struct {
@@ -33,11 +34,15 @@ func NewRedisStore(addr, password string, db int) (*RedisStore, error) {
 	}, nil
 }
 
-func (rs *RedisStore) IncrementCounters(ctx context.Context, targetURL string) (int64, int64, error) {
+func (rs *RedisStore) generateCounterKeys(targetURL string) (todayKey string, totalKey string) {
 	today := time.Now().Format("2006-01-02")
+	todayKey = fmt.Sprintf("hits:%s:%s", targetURL, today)
+	totalKey = fmt.Sprintf("hits:%s:total", targetURL)
+	return
+}
 
-	todayKey := fmt.Sprintf("hits:%s:%s", targetURL, today)
-	totalKey := fmt.Sprintf("hits:%s:total", targetURL)
+func (rs *RedisStore) IncrementCounters(ctx context.Context, targetURL string) (int64, int64, error) {
+	todayKey, totalKey := rs.generateCounterKeys(targetURL)
 
 	todayCount, err := rs.client.Incr(ctx, todayKey).Result()
 	if err != nil {
@@ -49,6 +54,22 @@ func (rs *RedisStore) IncrementCounters(ctx context.Context, targetURL string) (
 	totalCount, err := rs.client.Incr(ctx, totalKey).Result()
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to increment total counter: %w", err)
+	}
+
+	return todayCount, totalCount, nil
+}
+
+func (rs *RedisStore) ShowCounters(ctx context.Context, targetURL string) (int64, int64, error) {
+	todayKey, totalKey := rs.generateCounterKeys(targetURL)
+
+	todayCount, err := rs.client.Get(ctx, todayKey).Int64()
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to get today's counter: %w", err)
+	}
+
+	totalCount, err := rs.client.Get(ctx, totalKey).Int64()
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to get total counter: %w", err)
 	}
 
 	return todayCount, totalCount, nil

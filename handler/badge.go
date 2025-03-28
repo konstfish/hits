@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -21,45 +22,50 @@ func NewBadgeHandler(store storage.CounterStore) *BadgeHandler {
 	}
 }
 
-func (h *BadgeHandler) HandleBadge(c *gin.Context) {
+func setBadgeHeaders(c *gin.Context) {
+	c.Header("Content-Type", "image/svg+xml")
+	c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+	c.Header("Pragma", "no-cache")
+	c.Header("Expires", "0")
+}
+
+func (h *BadgeHandler) processAndRenderBadge(c *gin.Context, counterOp func(ctx context.Context, url string) (int64, int64, error)) {
 	var params models.BadgeParams
 
 	if err := c.ShouldBindQuery(&params); err != nil {
-		c.String(http.StatusBadRequest, "Invalid parameters: %v", err)
+		c.String(http.StatusBadRequest, "invalid parameters: %v", err)
 		return
 	}
 
-	if params.TitleBg == "" {
-		params.TitleBg = "#555555"
-	}
-	if params.CountBg == "" {
-		params.CountBg = "#007ec6"
-	}
-	if params.Title == "" {
-		params.Title = "hits"
-	}
+	params.SetDefaults()
 
 	decodedURL, err := url.QueryUnescape(params.URL)
 	if err != nil {
-		c.String(http.StatusBadRequest, "Invalid URL encoding")
+		c.String(http.StatusBadRequest, "invalid URL encoding")
 		return
 	}
 
-	todayCount, totalCount, err := h.store.IncrementCounters(c.Request.Context(), decodedURL)
+	todayCount, totalCount, _ := counterOp(c.Request.Context(), decodedURL)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "", err)
+		fmt.Printf("failed to process request: %v\n", err)
+		c.String(http.StatusInternalServerError, "unable to process request, counter issue")
 		return
 	}
 
 	badgeText := fmt.Sprintf("%d / %d", todayCount, totalCount)
 
-	c.Header("Content-Type", "image/svg+xml")
-	c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
-	c.Header("Pragma", "no-cache")
-	c.Header("Expires", "0")
+	setBadgeHeaders(c)
 
 	if err := badge.Render(params.Title, badgeText, badge.Color(params.CountBg), c.Writer); err != nil {
-		c.String(http.StatusInternalServerError, "", err)
+		c.String(http.StatusInternalServerError, "unable to render badge")
 		return
 	}
+}
+
+func (h *BadgeHandler) HandleIncrBadge(c *gin.Context) {
+	h.processAndRenderBadge(c, h.store.IncrementCounters)
+}
+
+func (h *BadgeHandler) HandleShowBadge(c *gin.Context) {
+	h.processAndRenderBadge(c, h.store.ShowCounters)
 }

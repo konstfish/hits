@@ -19,10 +19,13 @@ func HandleIndex(c *gin.Context) {
 		AddStyleSheet("https://cdn.jsdelivr.net/gh/konstfish/ui@main/static/prism.css").
 		AddLinkWithType("icon", "static/logo.svg", "image/svg+xml")
 
-	page.Body.AddChild(kf.HeaderBar(kf.TitleLogo("konstfish/hits", "static/logo.svg"), []kf.KeyValue{{Key: "Source", Value: "https://github.com/konstfish/hits"}}))
+	page.Body.AddChild(kf.HeaderBar(kf.TitleLogo("konstfish/hits", "static/logo.svg"), []kf.KeyValue{{Key: "Source & Docs", Value: "https://github.com/konstfish/hits"}}))
 
-	main := kf.AppBody().AddChild(kf.Panel(kf.TitleLogo("", "/api/count/incr/badge.svg?url=https://hits.konst.fish&count_bg=%236580A8&title_bg=%23555555&icon=&icon_color=%23E7E7E7&title=hits")).AddClasses("flex-center"))
-	main.AddChild(kf.Panel(kf.Code("text", "GET https://hits.konst.fish/api/count/incr/badge.svg?url=https://hits.konst.fish&count_bg=#6580A8&title_bg=#555555&icon=&icon_color=#E7E7E7&title=hits")))
+	main := kf.AppBody().AddChild(
+		kf.Link("", "https://github.com/konstfish/hits").AddChild(
+			kf.TitleLogo("", "/api/count/incr/badge.svg?url=https://hits.konst.fish&count_bg=%236580A8&title=hits"),
+		).AddClasses("flex-center"),
+	)
 
 	page.Body.AddChild(main)
 

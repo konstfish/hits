@@ -42,7 +42,8 @@ func main() {
 
 	router.GET("/", handler.HandleIndex)
 
-	router.GET("/api/count/incr/badge.svg", badgeHandler.HandleBadge)
+	router.GET("/api/count/incr/badge.svg", badgeHandler.HandleIncrBadge)
+	router.GET("/api/count/show/badge.svg", badgeHandler.HandleShowBadge)
 
 	log.Printf("Server starting on :%s", cfg.Port)
 	if err := router.Run(":" + cfg.Port); err != nil {
